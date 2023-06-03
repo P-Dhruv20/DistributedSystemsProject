@@ -182,7 +182,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		rf.convertStateTo(Follower)
 		rf.latestTerm = args.Term
 	}
-
+	// if candidate's term is less than receiver's term, then receiver rejects vote
 	if args.Term < rf.latestTerm || (rf.votedCandidate != -1 && rf.votedCandidate != args.CandidateID) {
 
 		reply.Term = rf.latestTerm
@@ -190,6 +190,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		return
 	}
 
+	// if candidate's term is greater than receiver's term, then receiver updates its term
 	if rf.votedCandidate == -1 || rf.votedCandidate == args.CandidateID {
 
 		lastLogIndex := len(rf.log) - 1
@@ -261,9 +262,11 @@ func (rf *Raft) startElection() {
 
 	rf.mu.Unlock()
 	for i := 0; i < len(rf.peers); i++ {
+		// skip self
 		if i == rf.me {
 			continue
 		}
+		// send request vote to all other peers
 		go func(id int) {
 
 			rf.mu.Lock()
@@ -275,7 +278,6 @@ func (rf *Raft) startElection() {
 				LatestLogTerm:  rf.log[finalLogIndex].Term,
 			}
 			rf.mu.Unlock()
-
 			var reply RequestVoteReply
 			if rf.sendRequestVote(id, &args, &reply) {
 				rf.mu.Lock()
@@ -283,9 +285,10 @@ func (rf *Raft) startElection() {
 				if rf.latestTerm != args.Term {
 					return
 				}
+				// if vote granted, then increment vote count
 				if reply.VoteGranted {
 					nVote += 1
-
+					// if majority vote, then become leader
 					if nVote > len(rf.peers)/2 && rf.state == Candidate {
 						rf.convertStateTo(Leader)
 
@@ -299,7 +302,7 @@ func (rf *Raft) startElection() {
 						rf.mu.Lock()
 					}
 				} else {
-
+					// if vote not granted, then check if term is stale and update
 					if rf.latestTerm < reply.Term {
 						rf.convertStateTo(Follower)
 						rf.latestTerm = reply.Term
@@ -332,6 +335,7 @@ type AppendEntriesReply struct {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	// if term is stale, then reject
 	if args.Term < rf.latestTerm {
 		reply.Term = rf.latestTerm
 		reply.Success = false
@@ -339,17 +343,18 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		return
 	}
 	rf.resetElectionTimer()
+	// if term is not stale, then update term and convert to follower
 	if args.Term > rf.latestTerm {
 		rf.convertStateTo(Follower)
 		rf.latestTerm = args.Term
-
+	// if state is candidate, then convert to follower
 	} else if rf.state == Candidate {
 		rf.state = Follower
 
 	}
 
 	if len(rf.log) <= args.PrevLogIndex || rf.log[args.PrevLogIndex].Term != args.PrevLogTerm {
-
+		// if log doesn't contain an entry at prevLogIndex whose term matches prevLogTerm, then reject
 		reply.Term = rf.latestTerm
 		reply.Success = false
 	} else {
@@ -368,6 +373,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		}
 
 		if !isMatch {
+		
 			rf.log = append(rf.log[:nextLogIndex+conflictIndex], args.Entries[conflictIndex:]...)
 		}
 
@@ -386,11 +392,12 @@ func (rf *Raft) sendAppendEntries(server int, args *AppendEntriesArgs, reply *Ap
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 	return ok
 }
+
 func (rf *Raft) broadcastHeartbeat() {
+
 	rf.mu.Lock()
+	// if not leader, then return
 	if rf.state != Leader {
-		// DPrintf("[broadcastHeartbeat] raft %d lost leadership | current term: %d | current state: %d\n",
-		// 	rf.me, rf.latestTerm, rf.state)
 		rf.mu.Unlock()
 		return
 	}
@@ -400,7 +407,7 @@ func (rf *Raft) broadcastHeartbeat() {
 		if i == rf.me {
 			continue
 		}
-
+		// send heartbeat to all other peers 
 		go func(id int) {
 
 		retry:
@@ -414,7 +421,7 @@ func (rf *Raft) broadcastHeartbeat() {
 				LeaderCommit: rf.commitLogIndex,
 			}
 
-			rf.mu.Unlock() //waiting for reply as we unlock
+			rf.mu.Unlock()
 
 			if _, isLeader := rf.GetState(); !isLeader {
 				return
@@ -429,7 +436,7 @@ func (rf *Raft) broadcastHeartbeat() {
 					rf.mu.Unlock()
 					return
 				}
-
+				
 				if rf.latestTerm != args.Term {
 
 					rf.mu.Unlock()
@@ -437,7 +444,7 @@ func (rf *Raft) broadcastHeartbeat() {
 				}
 
 				if reply.Success {
-
+					// if success, then update nextLogIndex and matchLogIndex and check for majority
 					rf.matchLogIndex[id] = args.PrevLogIndex + len(args.Entries)
 					rf.nextLogIndex[id] = rf.matchLogIndex[id] + 1
 					rf.checkMajority()
@@ -464,6 +471,7 @@ func (rf *Raft) broadcastHeartbeat() {
 
 // IDHAR AA JAO
 func (rf *Raft) checkMajority() {
+	// check for majority and commit log entries
 	for N := len(rf.log) - 1; N > rf.commitLogIndex; N-- {
 		nReplicated := 0
 		for i := 0; i < len(rf.peers); i++ {
@@ -555,6 +563,7 @@ func (rf *Raft) convertStateTo(state int32) {
 ////// HELPER FUNCTIONS  END//////
 
 func (rf *Raft) applyLogEntries() {
+	// apply log entries to state machine
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
@@ -657,7 +666,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.electionTimerChan = make(chan bool)
 	rf.heartbeatTimeout = 100 // ms
 	rf.resetElectionTimer()
-
+	// 
 	rf.log = append(rf.log, LogEntry{Term: 0})
 	rf.nextLogIndex = make([]int, len(rf.peers))
 	rf.matchLogIndex = make([]int, len(rf.peers))
