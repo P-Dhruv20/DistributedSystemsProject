@@ -3,9 +3,9 @@
 
 ## Changes made to the files
 
-We made changes to raft.go file in `src/raft` for [project 2A](#Changes-to-raft.go-for-project-2A:) and [project 2B](#Changes-to-raft.go-for-project-2B:).
+We made changes to raft.go file in `src/raft` for [project 2A](#Changes-to-raft.go-for-project-2A) and [project 2B](#Changes-to-raft.go-for-project-2B).
 
-### Changes to raft.go for project 2A:
+### Changes to raft.go for project 2A
 
 #### States and Structures:
 
@@ -45,7 +45,9 @@ Added following functions for the leader to manage the Raft cluster:
 
 `SendAppendEntriesHandler()`: To concurrently handle the `sendAppendEntries()` calls for each follower, enabling simultaneous communication from the leader to all followers.
 
-### Changes to raft.go for project 2B:
+# CS 253 Project 2B: Raft Log
+
+### Changes to raft.go for project 2B
 
 #### Variables, States and Structures:
 
@@ -82,7 +84,6 @@ In addition, we have also added small helper functions like `min()` and `max()` 
 During development of this project, we worked together using the pair programming technique and made equal contributions to project.
 
 By Dhruv Parmar and Kartikay Kaul
-
 
 ## Results
 
