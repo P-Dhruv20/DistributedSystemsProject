@@ -3,9 +3,9 @@
 
 ## Changes made to the files
 
-We made changes to raft.go file in `src/raft` for [project 2A](#Changes-to-raft.go-for-project-2A) and [project 2B](#Changes-to-raft.go-for-project-2B).
+We made changes to raft.go file in `src/raft` for [project 2A](#changes-to-raft-for-project-2A) and [project 2B](#changes-to-raft-for-project-2B).
 
-### Changes to raft.go for project 2A
+### Changes to raft for project 2A
 
 #### States and Structures:
 
@@ -47,7 +47,7 @@ Added following functions for the leader to manage the Raft cluster:
 
 # CS 253 Project 2B: Raft Log
 
-### Changes to raft.go for project 2B
+### Changes to raft for project 2B
 
 #### Variables, States and Structures:
 
